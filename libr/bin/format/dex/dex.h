@@ -120,6 +120,7 @@ typedef struct r_bin_dex_obj_t {
 	ut64 code_to;
 	char *version;
 	Sdb *kv;
+	HtUP *htup_strings;
 } RBinDexObj;
 
 struct r_bin_dex_str_t {
