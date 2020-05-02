@@ -806,45 +806,67 @@ R_API int r_main_rasm2(int argc, const char *argv[]) {
 		}
 	} else if (opt.argv[opt.ind]) {
 		if (!strcmp (opt.argv[opt.ind], "-")) {
-			int length;
-			do {
-				char buf[1024]; // TODO: use(implement) r_stdin_line() or so
-				length = read (0, buf, sizeof (buf) - 1);
-				if (length < 1) {
-					break;
-				}
-				if (len > 0 && len < length) {
-					length = len;
-				}
-				buf[length] = 0;
-				if ((!bin || !dis) && feof (stdin)) {
-					break;
-				}
-				if (skip && length > skip) {
-					if (bin) {
+			if (bin) {
+				int length;
+				do {
+					char buf[1024]; // TODO: use(implement) r_stdin_line() or so
+					length = read (0, buf, sizeof (buf) - 1);
+					if (length < 1) {
+						break;
+					}
+					if (len > 0 && len < length) {
+						length = len;
+					}
+					buf[length] = 0;
+					if (!dis && feof (stdin)) {
+						break;
+					}
+					if (skip && length > skip) {
 						memmove (buf, buf + skip, length - skip + 1);
 						length -= skip;
 					}
-				}
-				if (!bin || !dis) {
-					int buflen = strlen ((const char *)buf);
-					if (buf[buflen] == '\n') {
-						buf[buflen - 1] = '\0';
+					if (!dis) {
+						int buflen = strlen ((const char *)buf);
+						if (buf[buflen] == '\n') {
+							buf[buflen - 1] = '\0';
+						}
+					}
+					if (dis) {
+						ret = rasm_disasm (as, offset, (char *)buf, length, as->a->bits, bin, dis - 1);
+					} else if (analinfo) {
+						ret = show_analinfo (as, (const char *)buf, offset);
+					} else {
+						ret = rasm_asm (as, (const char *)buf, offset, length, as->a->bits, bin, use_spp, hexwords);
+					}
+					idx += ret;
+					offset += ret;
+					if (!ret) {
+						goto beach;
+					}
+				} while (!len || idx < length);
+			} else {
+				int length;
+				char *line = NULL;
+				while (getline (&line, (size_t *)&length, stdin) != -1) {
+					if (dis) {
+						ret = rasm_disasm (as, offset, line, length, as->a->bits, bin, dis - 1);
+					} else if (analinfo) {
+						ret = show_analinfo (as, (const char *)line, offset);
+					} else {
+						ret = rasm_asm (as, (const char *)line, offset, length, as->a->bits, bin, use_spp, hexwords);
+					}
+					fflush (stdout);
+					offset += ret;
+					idx += ret;
+					if (!ret) {
+						free (line);
+						goto beach;
 					}
 				}
-				if (dis) {
-					ret = rasm_disasm (as, offset, (char *)buf, length, as->a->bits, bin, dis - 1);
-				} else if (analinfo) {
-					ret = show_analinfo (as, (const char *)buf, offset);
-				} else {
-					ret = rasm_asm (as, (const char *)buf, offset, length, as->a->bits, bin, use_spp, hexwords);
+				if (line) {
+					free (line);
 				}
-				idx += ret;
-				offset += ret;
-				if (!ret) {
-					goto beach;
-				}
-			} while (!len || idx < length);
+			}
 			ret = idx;
 			goto beach;
 		}
